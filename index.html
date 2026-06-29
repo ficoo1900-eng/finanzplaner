@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanzplaner – ETF & Immobilie</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --surface2: #f0efeb;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #0b0b0b;
+    --text-sec: #52514e;
+    --text-muted: #898781;
+    --radius: 8px;
+    --blue: #2a78d6;
+    --green: #1baf7a;
+    --red: #e34948;
+    --warn-bg: #fef9ec;
+    --warn-border: #f5d57a;
+    --warn-text: #7a5c00;
+    --accent-bg: #eef4fd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413;
+      --surface: #1e1e1c;
+      --surface2: #252523;
+      --border: rgba(255,255,255,0.1);
+      --border-strong: rgba(255,255,255,0.18);
+      --text: #f5f5f0;
+      --text-sec: #c3c2b7;
+      --text-muted: #898781;
+      --accent-bg: #1a2535;
+      --warn-bg: #2a2310;
+      --warn-border: #7a5c00;
+      --warn-text: #f5d57a;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1rem; }
+  .container { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 1.5rem; }
+  .sec { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+  .sec-title { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 0.9rem; text-transform: uppercase; letter-spacing: .05em; }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { font-size: 13px; color: var(--text-sec); min-width: 170px; flex-shrink: 0; }
+  .row input[type=range] { flex: 1; accent-color: var(--blue); }
+  .val { font-size: 13px; font-weight: 500; min-width: 115px; text-align: right; color: var(--text); }
+  .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 0.9rem; }
+  .toggle-label { font-size: 13px; color: var(--text-sec); }
+  .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .tog-slider { position: absolute; inset: 0; background: var(--border-strong); border-radius: 22px; cursor: pointer; transition: .2s; }
+  .tog-slider:before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  input:checked + .tog-slider { background: var(--blue); }
+  input:checked + .tog-slider:before { transform: translateX(18px); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 1rem; }
+  .kpi { background: var(--surface2); border-radius: var(--radius); padding: 0.75rem 0.9rem; }
+  .kpi-l { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .kpi-v { font-size: 16px; font-weight: 500; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { padding: 7px 16px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); font-size: 13px; cursor: pointer; background: var(--surface2); color: var(--text-sec); transition: .15s; }
+  .tab:hover { background: var(--surface); }
+  .tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .legend { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-sec); }
+  .leg-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .chart-wrap { position: relative; width: 100%; height: 220px; margin-bottom: 0.75rem; }
+  .tbl-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border-radius: var(--radius); border: 0.5px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  th { text-align: left; padding: 7px 8px; font-weight: 500; font-size: 11px; color: var(--text-muted); border-bottom: 0.5px solid var(--border-strong); }
+  td { padding: 7px 8px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .g { color: var(--green); }
+  .r { color: var(--red); }
+  .hl td { background: var(--accent-bg); }
+  .bar-bg { background: var(--bg); border-radius: 3px; height: 6px; overflow: hidden; }
+  .bi { background: var(--blue); height: 6px; display: inline-block; vertical-align: top; }
+  .bg2 { background: var(--green); height: 6px; display: inline-block; vertical-align: top; }
+  .warn { background: var(--warn-bg); border: 0.5px solid var(--warn-border); border-radius: var(--radius); padding: 0.65rem 1rem; font-size: 13px; color: var(--warn-text); margin-bottom: 1rem; display: none; }
+  .footer { margin-top: 1.5rem; font-size: 11px; color: var(--text-muted); line-height: 1.7; text-align: center; padding-bottom: 2rem; }
+  @media (max-width: 600px) {
+    .row { flex-wrap: wrap; }
+    .row label { min-width: 100%; }
+    .val { min-width: auto; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Finanzplaner</h1>
+  <p class="subtitle">ETF-Sparplan + Immobilie Wien · Alle Werte live berechnet</p>
+
+  <div class="sec">
+    <div class="sec-title">Personen & Einkommen</div>
+    <div class="row"><label>Brutto Person 1 / Mo</label><input type="range" id="b1" min="1500" max="10000" step="100" value="3500"><span class="val" id="ob1"></span></div>
+    <div class="row"><label>Netto Person 1 / Mo</label><input type="range" id="n1" min="1000" max="7000" step="100" value="2400"><span class="val" id="on1"></span></div>
+    <div class="row"><label>Brutto Person 2 / Mo</label><input type="range" id="b2" min="1500" max="10000" step="100" value="3000"><span class="val" id="ob2"></span></div>
+    <div class="row"><label>Netto Person 2 / Mo</label><input type="range" id="n2" min="1000" max="7000" step="100" value="2100"><span class="val" id="on2"></span></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Lebenshaltungskosten / Monat</div>
+    <div class="row"><label>Miete (bis Kauf)</label><input type="range" id="miete" min="500" max="3000" step="50" value="1200"><span class="val" id="omiete"></span></div>
+    <div class="row"><label>Auto / Transport</label><input type="range" id="auto" min="0" max="1000" step="50" value="400"><span class="val" id="oauto"></span></div>
+    <div class="row"><label>Essen & Freizeit</label><input type="range" id="essen" min="200" max="2000" step="50" value="800"><span class="val" id="oessen"></span></div>
+    <div class="row"><label>Urlaub / Jahr (÷12)</label><input type="range" id="urlaub" min="0" max="500" step="25" value="150"><span class="val" id="ourlaub"></span></div>
+    <div class="row"><label>Sonstige fixe Kosten</label><input type="range" id="sonst" min="0" max="1000" step="50" value="200"><span class="val" id="osonst"></span></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">ETF-Sparplan</div>
+    <div class="toggle-row">
+      <label class="toggle"><input type="checkbox" id="paar-tog"><span class="tog-slider"></span></label>
+      <span class="toggle-label">Gemeinsam auf ein Konto einzahlen</span>
+    </div>
+    <div id="einzel-block">
+      <div class="row"><label>Sparrate Person 1 / Mo</label><input type="range" id="r1" min="0" max="1500" step="25" value="300"><span class="val" id="or1"></span></div>
+      <div class="row"><label>Sparrate Person 2 / Mo</label><input type="range" id="r2" min="0" max="1500" step="25" value="250"><span class="val" id="or2"></span></div>
+    </div>
+    <div id="gemein-block" style="display:none;">
+      <div class="row"><label>Gemeinsame Sparrate / Mo</label><input type="range" id="rg" min="0" max="3000" step="50" value="550"><span class="val" id="org"></span></div>
+    </div>
+    <div class="row"><label>Startkapital (gesamt)</label><input type="range" id="start" min="0" max="200000" step="1000" value="5000"><span class="val" id="ostart"></span></div>
+    <div class="row"><label>Jährliche Rendite ETF</label><input type="range" id="ret" min="1" max="12" step="0.5" value="7"><span class="val" id="oret"></span></div>
+    <div class="row"><label>Anlagehorizont (Jahre)</label><input type="range" id="yrs" min="5" max="40" step="1" value="30"><span class="val" id="oyrs"></span></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Immobilie Wien</div>
+    <div class="row"><label>Immobilienpreis</label><input type="range" id="immo" min="150000" max="1500000" step="10000" value="450000"><span class="val" id="oimmo"></span></div>
+    <div class="row"><label>Eigenkapital (Anzahlung)</label><input type="range" id="ek" min="0" max="500000" step="5000" value="50000"><span class="val" id="oek"></span></div>
+    <div class="row"><label>Kreditlaufzeit (Jahre)</label><input type="range" id="klz" min="10" max="35" step="1" value="25"><span class="val" id="oklz"></span></div>
+    <div class="row"><label>Kreditzins p.a.</label><input type="range" id="kzins" min="1" max="6" step="0.1" value="3.5"><span class="val" id="okzins"></span></div>
+    <div class="row"><label>Wertsteigerung Wien p.a.</label><input type="range" id="immoret" min="1" max="8" step="0.5" value="3.5"><span class="val" id="oimmoret"></span></div>
+  </div>
+
+  <div class="warn" id="warn-box">⚠ Achtung: Die monatlichen Ausgaben übersteigen das Nettoeinkommen. Bitte Regler anpassen.</div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-l">Netto gesamt / Mo</div><div class="kpi-v" id="k-netto"></div></div>
+    <div class="kpi"><div class="kpi-l">Lebenshaltung / Mo</div><div class="kpi-v" id="k-ausg" style="color:var(--red);"></div></div>
+    <div class="kpi"><div class="kpi-l">Kreditrate / Mo</div><div class="kpi-v" id="k-rate" style="color:var(--red);"></div></div>
+    <div class="kpi"><div class="kpi-l">Sparrate / Mo</div><div class="kpi-v" id="k-spar" style="color:var(--blue);"></div></div>
+    <div class="kpi"><div class="kpi-l">Frei verfügbar / Mo</div><div class="kpi-v" id="k-frei"></div></div>
+    <div class="kpi"><div class="kpi-l">ETF-Endwert</div><div class="kpi-v" id="k-etf" style="color:var(--green);"></div></div>
+    <div class="kpi"><div class="kpi-l">Immobilie nach Laufzeit</div><div class="kpi-v" id="k-immo" style="color:var(--green);"></div></div>
+    <div class="kpi"><div class="kpi-l">Gesamtvermögen</div><div class="kpi-v" id="k-ges" style="color:var(--green);"></div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('etf')">ETF-Sparplan</button>
+    <button class="tab" onclick="switchTab('immo')">Immobilie</button>
+    <button class="tab" onclick="switchTab('vgl')">Vergleich</button>
+  </div>
+
+  <div id="p-etf" class="panel active">
+    <div class="legend">
+      <span><span class="leg-sq" style="background:var(--blue);"></span>Eingezahlt</span>
+      <span><span class="leg-sq" style="background:var(--green);"></span>Zinsgewinn</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-etf" role="img" aria-label="ETF Sparplan Wachstum"></canvas></div>
+    <div class="tbl-wrap"><table><thead><tr>
+      <th style="width:42px;">Jahr</th><th style="width:50px;">Alter</th>
+      <th class="num" style="width:95px;">Eingezahlt</th>
+      <th class="num" style="width:95px;">Zinsgewinn</th>
+      <th class="num" style="width:100px;">ETF-Wert</th>
+      <th style="width:80px;">Anteil</th>
+    </tr></thead><tbody id="tb-etf"></tbody></table></div>
+  </div>
+
+  <div id="p-immo" class="panel">
+    <div class="legend">
+      <span><span class="leg-sq" style="background:var(--red);"></span>Restschuld</span>
+      <span><span class="leg-sq" style="background:var(--green);"></span>Immobilienwert</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-immo" role="img" aria-label="Immobilie Wert vs Restschuld"></canvas></div>
+    <div class="tbl-wrap"><table><thead><tr>
+      <th style="width:42px;">Jahr</th>
+      <th class="num" style="width:105px;">Immobilienwert</th>
+      <th class="num" style="width:95px;">Restschuld</th>
+      <th class="num" style="width:100px;">Eigenkapital</th>
+      <th class="num" style="width:85px;">Gewinn</th>
+    </tr></thead><tbody id="tb-immo"></tbody></table></div>
+  </div>
+
+  <div id="p-vgl" class="panel">
+    <div class="legend">
+      <span><span class="leg-sq" style="background:var(--blue);"></span>ETF-Vermögen</span>
+      <span><span class="leg-sq" style="background:var(--green);"></span>Immo-Eigenkapital</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-vgl" role="img" aria-label="Vergleich ETF vs Immobilie"></canvas></div>
+    <div class="tbl-wrap"><table><thead><tr>
+      <th style="width:42px;">Jahr</th>
+      <th class="num" style="width:100px;">ETF-Wert</th>
+      <th class="num" style="width:115px;">Immo-Eigenkapital</th>
+      <th class="num" style="width:110px;">Gesamtvermögen</th>
+    </tr></thead><tbody id="tb-vgl"></tbody></table></div>
+  </div>
+
+  <div class="footer">
+    Ohne KeSt (27,5%) und Inflation · Immobilien-Wertsteigerung Wien Ø 3,5% p.a. (OeNB/INFINA 2025)<br>
+    Gewinne werden automatisch reinvestiert (thesaurierend) · Kein Finanzberater – nur zur Orientierung
+  </div>
+</div>
+
+<script>
+function fmtE(n){
+  if(n>=1000000) return '€ '+(n/1000000).toFixed(2).replace('.',',')+' Mio';
+  if(n>=10000) return '€ '+Math.round(n/1000)+' Tsd';
+  return '€ '+Math.round(n).toLocaleString('de-AT');
+}
+function fmtF(n){ return '€ '+Math.round(n).toLocaleString('de-AT'); }
+
+function mkChart(id, ds, stacked){
+  return new Chart(document.getElementById(id).getContext('2d'),{
+    type:'bar', data:{labels:[], datasets:ds},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtF(c.raw)}}},
+      scales:{
+        x:{stacked:!!stacked, ticks:{color:'#898781',font:{size:10},maxTicksLimit:12}, grid:{display:false}},
+        y:{stacked:!!stacked, ticks:{color:'#898781',font:{size:10},callback:v=>{
+          if(v>=1000000) return (v/1000000).toFixed(1)+'M';
+          if(v>=1000) return (v/1000).toFixed(0)+'K';
+          return v;
+        }}, grid:{color:'rgba(128,128,128,0.15)'}}
+      }
+    }
+  });
+}
+
+const cEtf = mkChart('chart-etf',[
+  {label:'Eingezahlt', data:[], backgroundColor:'#2a78d6', stack:'a'},
+  {label:'Zinsgewinn', data:[], backgroundColor:'#1baf7a', stack:'a'}
+], true);
+const cImmo = mkChart('chart-immo',[
+  {label:'Restschuld', data:[], backgroundColor:'#e34948'},
+  {label:'Immobilienwert', data:[], backgroundColor:'#1baf7a'}
+], false);
+const cVgl = mkChart('chart-vgl',[
+  {label:'ETF-Vermögen', data:[], backgroundColor:'#2a78d6'},
+  {label:'Immo-Eigenkapital', data:[], backgroundColor:'#1baf7a'}
+], false);
+
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((b,i)=>{
+    b.classList.toggle('active',['etf','immo','vgl'][i]===t);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+t).classList.add('active');
+  [cEtf,cImmo,cVgl].forEach(c=>c.resize());
+}
+
+document.getElementById('paar-tog').addEventListener('change',function(){
+  document.getElementById('einzel-block').style.display=this.checked?'none':'block';
+  document.getElementById('gemein-block').style.display=this.checked?'block':'none';
+  update();
+});
+
+function g(id){return +document.getElementById(id).value;}
+function s(id,v){document.getElementById(id).textContent=v;}
+const milestones=new Set([5,10,15,20,25,30,35,40]);
+
+function update(){
+  const n1=g('n1'), n2=g('n2');
+  const miete=g('miete'), auto=g('auto'), essen=g('essen'), urlaub=g('urlaub'), sonst=g('sonst');
+  const paar=document.getElementById('paar-tog').checked;
+  const sparRate=paar?g('rg'):g('r1')+g('r2');
+  const startK=g('start'), ret=g('ret'), yrs=g('yrs');
+  const immoPreis=g('immo'), ek=g('ek'), klz=g('klz'), kzins=g('kzins'), immoRet=g('immoret');
+
+  s('ob1','€ '+g('b1').toLocaleString('de-AT'));
+  s('on1','€ '+n1.toLocaleString('de-AT'));
+  s('ob2','€ '+g('b2').toLocaleString('de-AT'));
+  s('on2','€ '+n2.toLocaleString('de-AT'));
+  s('omiete','€ '+miete);
+  s('oauto','€ '+auto);
+  s('oessen','€ '+essen);
+  s('ourlaub','€ '+urlaub+'/Mo');
+  s('osonst','€ '+sonst);
+  if(paar) s('org','€ '+g('rg')+'/Mo');
+  else { s('or1','€ '+g('r1')+'/Mo'); s('or2','€ '+g('r2')+'/Mo'); }
+  s('ostart','€ '+startK.toLocaleString('de-AT'));
+  s('oret',ret.toFixed(1).replace('.',',')+' %');
+  s('oyrs',yrs+' Jahre');
+  s('oimmo','€ '+immoPreis.toLocaleString('de-AT'));
+  s('oek','€ '+ek.toLocaleString('de-AT'));
+  s('oklz',klz+' J.');
+  s('okzins',kzins.toFixed(1).replace('.',',')+' %');
+  s('oimmoret',immoRet.toFixed(1).replace('.',',')+' %');
+
+  const nettoGes=n1+n2;
+  const lebenskosten=miete+auto+essen+urlaub+sonst;
+  const kredit=immoPreis-ek;
+  const kr=kzins/100/12;
+  const kreditRate=kredit>0?Math.round(kredit*(kr*Math.pow(1+kr,klz*12))/(Math.pow(1+kr,klz*12)-1)):0;
+  const ausgaben=lebenskosten+kreditRate+sparRate;
+  const frei=nettoGes-ausgaben;
+
+  document.getElementById('warn-box').style.display=frei<-100?'block':'none';
+  s('k-netto',fmtF(nettoGes));
+  s('k-ausg',fmtF(lebenskosten));
+  s('k-rate',fmtF(kreditRate)+'/Mo');
+  s('k-spar',fmtF(sparRate)+'/Mo');
+  const freiEl=document.getElementById('k-frei');
+  freiEl.textContent=(frei>=0?'+ ':'')+fmtF(frei);
+  freiEl.style.color=frei>=0?'#1baf7a':'#e34948';
+
+  const r=ret/100/12;
+  const lE=[],invA=[],gainA=[];
+  const tbE=document.getElementById('tb-etf'); tbE.innerHTML='';
+  let etfFinal=0;
+
+  for(let y=1;y<=yrs;y++){
+    const m=y*12;
+    const fv=(sparRate>0?sparRate*((Math.pow(1+r,m)-1)/r):0)+startK*Math.pow(1+r,m);
+    const inv=Math.round(startK+sparRate*m);
+    const total=Math.round(fv);
+    const gain=total-inv;
+    etfFinal=total;
+    lE.push('J'+y); invA.push(inv); gainA.push(Math.max(0,gain));
+    const tr=document.createElement('tr');
+    if(milestones.has(y)) tr.className='hl';
+    const ip=Math.max(1,Math.round(inv/total*100)), gp=100-ip;
+    tr.innerHTML=`<td>${y}</td><td style="color:#898781;">${25+y}</td><td class="num">${fmtF(inv)}</td><td class="num g">+${fmtF(Math.max(0,gain))}</td><td class="num" style="font-weight:500;">${fmtE(total)}</td><td><div class="bar-bg"><span class="bi" style="width:${ip}%;"></span><span class="bg2" style="width:${gp}%;"></span></div></td>`;
+    tbE.appendChild(tr);
+  }
+
+  const maxY=Math.max(yrs,klz);
+  const lI=[],restA=[],wertA=[];
+  const tbI=document.getElementById('tb-immo'); tbI.innerHTML='';
+  let immoFinal=0;
+
+  for(let y=1;y<=maxY;y++){
+    const m=y*12;
+    const wert=Math.round(immoPreis*Math.pow(1+immoRet/100,y));
+    let rest=0;
+    if(y<klz&&kredit>0){
+      rest=Math.round(kredit*Math.pow(1+kr,m)-kreditRate*((Math.pow(1+kr,m)-1)/kr));
+      if(rest<0) rest=0;
+    }
+    const eigenK=wert-rest;
+    const gewinn=eigenK-ek;
+    if(y<=yrs) immoFinal=eigenK;
+    lI.push('J'+y); restA.push(rest); wertA.push(wert);
+    const tr=document.createElement('tr');
+    if(milestones.has(y)) tr.className='hl';
+    tr.innerHTML=`<td>${y}</td><td class="num" style="font-weight:500;">${fmtE(wert)}</td><td class="num r">${fmtF(rest)}</td><td class="num g">${fmtE(eigenK)}</td><td class="num ${gewinn>=0?'g':'r'}">${gewinn>=0?'+':''}${fmtF(gewinn)}</td>`;
+    tbI.appendChild(tr);
+  }
+
+  const lV=[],etfVA=[],immoVA=[];
+  const tbV=document.getElementById('tb-vgl'); tbV.innerHTML='';
+
+  for(let y=1;y<=yrs;y++){
+    const m=y*12;
+    const etfV=Math.round((sparRate>0?sparRate*((Math.pow(1+r,m)-1)/r):0)+startK*Math.pow(1+r,m));
+    const wert=Math.round(immoPreis*Math.pow(1+immoRet/100,y));
+    let rest=kredit>0?Math.round(kredit*Math.pow(1+kr,m)-kreditRate*((Math.pow(1+kr,m)-1)/kr)):0;
+    if(rest<0||y>=klz) rest=0;
+    const immoEK=wert-rest;
+    const ges=etfV+immoEK;
+    lV.push('J'+y); etfVA.push(etfV); immoVA.push(immoEK);
+    const tr=document.createElement('tr');
+    if(milestones.has(y)) tr.className='hl';
+    tr.innerHTML=`<td>${y}</td><td class="num g">${fmtE(etfV)}</td><td class="num g">${fmtE(immoEK)}</td><td class="num" style="font-weight:500;">${fmtE(ges)}</td>`;
+    tbV.appendChild(tr);
+  }
+
+  s('k-etf',fmtE(etfFinal));
+  s('k-immo',fmtE(immoFinal));
+  s('k-ges',fmtE(etfFinal+immoFinal));
+
+  cEtf.data.labels=lE; cEtf.data.datasets[0].data=invA; cEtf.data.datasets[1].data=gainA; cEtf.update();
+  cImmo.data.labels=lI; cImmo.data.datasets[0].data=restA; cImmo.data.datasets[1].data=wertA; cImmo.update();
+  cVgl.data.labels=lV; cVgl.data.datasets[0].data=etfVA; cVgl.data.datasets[1].data=immoVA; cVgl.update();
+}
+
+document.querySelectorAll('input[type=range]').forEach(el=>el.addEventListener('input',update));
+update();
+</script>
+</body>
+</html>
